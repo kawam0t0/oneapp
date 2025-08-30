@@ -578,11 +578,11 @@ export async function convertSquareToSupabaseTransaction(
 
   console.log("[v0] Square payment object:", JSON.stringify(squarePayment, null, 2))
 
-  const japanTime = new Date(Date.now() + 9 * 60 * 60 * 1000)
-
   const createdAt = new Date(squarePayment.created_at || new Date())
-  const transactionDate = createdAt.toISOString().split("T")[0]
-  const transactionTime = createdAt.toTimeString().split(" ")[0]
+  const japanTime = new Date(createdAt.getTime() + 9 * 60 * 60 * 1000)
+
+  const transactionDate = japanTime.toISOString().split("T")[0]
+  const transactionTime = japanTime.toISOString().split("T")[1].split(".")[0]
 
   const totalAmount = squarePayment.total_money?.amount || squarePayment.amount_money?.amount || 0
   const discountAmount = squarePayment.total_discount_money?.amount || squarePayment.discount_money?.amount || 0
