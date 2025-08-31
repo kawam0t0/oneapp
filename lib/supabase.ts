@@ -8,6 +8,11 @@ export interface Store {
   id: number
   name: string
   location: string
+  phone?: string
+  zip_code?: string
+  address?: string
+  mail?: string
+  password?: string
   created_at: string
 }
 
@@ -217,4 +222,18 @@ export function subscribeToTransactions(callback: (payload: any) => void) {
       callback,
     )
     .subscribe()
+}
+
+export async function authenticateStore(email: string, password: string) {
+  console.log("[v0] authenticateStore called with email:", email)
+
+  const { data, error } = await supabase.from("stores").select("*").eq("mail", email).eq("password", password).single()
+
+  if (error) {
+    console.error("[v0] Error authenticating store:", error)
+    return null
+  }
+
+  console.log("[v0] Store authenticated successfully:", data?.name)
+  return data
 }
