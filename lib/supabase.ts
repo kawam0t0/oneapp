@@ -227,13 +227,23 @@ export function subscribeToTransactions(callback: (payload: any) => void) {
 export async function authenticateStore(email: string, password: string) {
   console.log("[v0] authenticateStore called with email:", email)
 
-  const { data, error } = await supabase.from("stores").select("*").eq("mail", email).eq("password", password).single()
+  try {
+    const { data, error } = await supabase
+      .from("stores")
+      .select("*")
+      .eq("mail", email)
+      .eq("password", password)
+      .single()
 
-  if (error) {
-    console.error("[v0] Error authenticating store:", error)
+    if (error) {
+      console.error("[v0] Error authenticating store:", error)
+      return null
+    }
+
+    console.log("[v0] Store authentication successful:", data?.name)
+    return data
+  } catch (exception) {
+    console.error("[v0] Exception in authenticateStore:", exception)
     return null
   }
-
-  console.log("[v0] Store authenticated successfully:", data?.name)
-  return data
 }
