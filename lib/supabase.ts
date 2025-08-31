@@ -191,7 +191,6 @@ export async function getTransactions(storeId?: number) {
     .from("transactions")
     .select(`*, stores (id, name, location)`)
     .order("created_at", { ascending: false })
-    .limit(10000) // Explicit high limit to ensure all data is fetched
 
   if (storeId) {
     query = query.eq("store_id", storeId)
