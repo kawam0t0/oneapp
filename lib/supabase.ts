@@ -191,6 +191,7 @@ export async function getTransactions(storeId?: number) {
     .from("transactions")
     .select(`*, stores (id, name, location)`)
     .order("created_at", { ascending: false })
+    .limit(1000000) // Add explicit limit to override Supabase's default 1000 row limit
 
   if (storeId) {
     query = query.eq("store_id", storeId)
