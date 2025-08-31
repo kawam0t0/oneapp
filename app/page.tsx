@@ -1,13 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import DashboardHome from "@/components/dashboard/DashboardHome"
-import DailyReport from "@/components/dashboard/DailyReport"
-import CustomerManagement from "@/components/dashboard/CustomerManagement"
-import PlaceholderSection from "@/components/dashboard/PlaceholderSection"
-import { getStores, getTransactions, subscribeToTransactions, type Store, type Transaction } from "@/lib/supabase"
+import { Button } from "@/components/ui/button"
 import {
+  Download,
+  Brain,
+  LogOut,
   CalendarMinus as CalendarMenu,
   UserCheck,
   SubscriptIcon as SubscriptionIcon,
@@ -20,73 +18,28 @@ import {
   Home,
   Calendar,
 } from "lucide-react"
+import { useAuth } from "@/components/auth-provider"
+import { getTransactions, subscribeToTransactions, type Transaction, type Store } from "@/lib/supabase"
+import DashboardHome from "@/components/dashboard/DashboardHome"
+import CustomerManagement from "@/components/dashboard/CustomerManagement"
+import SubscriptionManagement from "@/components/dashboard/SubscriptionManagement"
+import DailyReport from "@/components/dashboard/DailyReport"
+import AttendanceManagement from "@/components/dashboard/AttendanceManagement"
+import ChatScreen from "@/components/dashboard/ChatScreen"
+import BiAnalytics from "@/components/dashboard/BiAnalytics"
+import MaintenanceErrors from "@/components/dashboard/MaintenanceErrors"
+import EventCalendar from "@/components/dashboard/EventCalendar"
+import PlaceholderSection from "@/components/dashboard/PlaceholderSection"
 
-export default function HomePage() {
-  const router = useRouter()
+export default function SplashNGoDashboard() {
+  const { userEmail, logout } = useAuth()
   const [selectedStore, setSelectedStore] = useState("all")
   const [sidebarHovered, setSidebarHovered] = useState(false)
   const [activeSection, setActiveSection] = useState("dashboard")
+
   const [stores, setStores] = useState<Store[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const isAuthenticated = localStorage.getItem("isAuthenticated")
-    if (isAuthenticated !== "true") {
-      router.push("/login")
-      return
-    }
-  }, [router])
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [storesData, transactionsData] = await Promise.all([getStores(), getTransactions()])
-
-        // 取引データから店舗を抽出
-        const storesFromTransactions = Array.from(
-          new Set(transactionsData.map((t) => t.store_name).filter(Boolean)),
-        ).map((name, index) => ({
-          id: index + 1,
-          name: name as string,
-          location: "",
-          phone: "",
-          zip_code: "",
-          address: "",
-          mail: "",
-          password: "",
-          created_at: new Date().toISOString(),
-        }))
-
-        setStores(storesFromTransactions)
-        setTransactions(transactionsData)
-        setLoading(false)
-      } catch (error) {
-        console.error("データ取得エラー:", error)
-        setLoading(false)
-      }
-    }
-
-    fetchData()
-
-    const subscription = subscribeToTransactions((payload) => {
-      if (payload.eventType === "INSERT") {
-        setTransactions((prev) => [payload.new, ...prev])
-      } else if (payload.eventType === "UPDATE") {
-        setTransactions((prev) => prev.map((t) => (t.id === payload.new.id ? payload.new : t)))
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [])
-
-  const handleLogout = () => {
-    localStorage.removeItem("isAuthenticated")
-    localStorage.removeItem("userEmail")
-    router.push("/login")
-  }
 
   const menuItems = [
     { id: "dashboard", label: "ダッシュボード", icon: Home },
@@ -102,6 +55,89 @@ export default function HomePage() {
     { id: "calendar", label: "行事カレンダー", icon: CalendarMenu },
   ]
 
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true)
+
+      console.log("[v0] Fetching transactions...")
+
+      const transactionsData = await getTransactions()
+      console.log("[v0] Transactions data:", transactionsData)
+      console.log("[v0] Number of transactions:", transactionsData.length)
+      setTransactions(transactionsData)
+
+      const uniqueStoreNames = [...new Set(transactionsData.map((t) => t.store_name).filter(Boolean))]
+      console.log("[v0] Unique store names from transactions:", uniqueStoreNames)
+
+      const storesFromTransactions = uniqueStoreNames.map((name, index) => ({
+        id: index + 1,
+        name: name as string,
+      }))
+
+      setStores(storesFromTransactions)
+      console.log("[v0] Stores from transactions:", storesFromTransactions)
+
+      setLoading(false)
+    }
+
+    fetchData()
+
+    console.log("[v0] Setting up real-time subscription...")
+    const subscription = subscribeToTransactions((payload) => {
+      console.log("[v0] Real-time transaction update received!")
+      console.log("[v0] Event type:", payload.eventType)
+      console.log("[v0] Payload:", payload)
+
+      if (payload.eventType === "INSERT") {
+        console.log("[v0] Adding new transaction:", payload.new)
+        setTransactions((prev) => {
+          console.log("[v0] Previous transactions count:", prev.length)
+          const updated = [payload.new, ...prev]
+          console.log("[v0] Updated transactions count:", updated.length)
+          return updated
+        })
+        // 新しい店舗が追加された場合、stores配列も更新
+        const newStoreName = payload.new.store_name
+        if (newStoreName) {
+          console.log("[v0] Checking for new store:", newStoreName)
+          setStores((prevStores) => {
+            const storeExists = prevStores.some((s) => s.name === newStoreName)
+            if (!storeExists) {
+              console.log("[v0] Adding new store:", newStoreName)
+              return [...prevStores, { id: prevStores.length + 1, name: newStoreName }]
+            }
+            console.log("[v0] Store already exists:", newStoreName)
+            return prevStores
+          })
+        }
+      } else if (payload.eventType === "UPDATE") {
+        console.log("[v0] Updating transaction:", payload.new.id)
+        setTransactions((prev) => prev.map((t) => (t.id === payload.new.id ? payload.new : t)))
+      } else if (payload.eventType === "DELETE") {
+        console.log("[v0] Deleting transaction:", payload.old.id)
+        setTransactions((prev) => prev.filter((t) => t.id !== payload.old.id))
+      }
+    })
+
+    console.log("[v0] Subscription created:", !!subscription)
+
+    return () => {
+      console.log("[v0] Cleaning up subscription...")
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  const handleSuppliesClick = () => {
+    window.open("https://kawam0t0-orderwebapp20250502.vercel.app/login", "_blank")
+  }
+
+  const handleShiftCreationClick = () => {
+    window.open(
+      "https://connect.airregi.jp/login?client_id=SFT&redirect_uri=https%3A%2F%2Fconnect.airregi.jp%2Foauth%2Fauthorize%3Fclient_id%3DSFT%26redirect_uri%3Dhttps%253A%252F%252Fairshift.jp%252Fsft%252Fcallback%26response_type%3Dcode%26state%3DredirectTo%253A%25252Fsft",
+      "_blank",
+    )
+  }
+
   const renderActiveSection = () => {
     switch (activeSection) {
       case "dashboard":
@@ -115,10 +151,24 @@ export default function HomePage() {
         )
       case "customers":
         return <CustomerManagement />
+      case "subscriptions":
+        return <SubscriptionManagement />
       case "daily-report":
         return <DailyReport stores={stores} transactions={transactions} />
+      case "attendance":
+        return <AttendanceManagement />
+      case "shift-creation":
+        return <PlaceholderSection title="シフト作成" />
+      case "chat":
+        return <ChatScreen />
+      case "bi-analytics":
+        return <BiAnalytics />
+      case "maintenance":
+        return <MaintenanceErrors />
+      case "calendar":
+        return <EventCalendar />
       default:
-        return <PlaceholderSection title={menuItems.find((item) => item.id === activeSection)?.label || "機能"} />
+        return <PlaceholderSection title="機能開発中" />
     }
   }
 
@@ -134,66 +184,92 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* サイドバー */}
+    <div className="min-h-screen bg-background">
       <div
-        className={`bg-white shadow-lg transition-all duration-300 ${sidebarHovered ? "w-64" : "w-16"}`}
+        className="fixed inset-y-0 left-0 z-50 w-16 hover:w-64 bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out group"
         onMouseEnter={() => setSidebarHovered(true)}
         onMouseLeave={() => setSidebarHovered(false)}
       >
-        <div className="p-4">
-          <h1
-            className={`font-bold text-xl text-blue-600 transition-opacity duration-300 ${
-              sidebarHovered ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            SPLASH'N'GO
-          </h1>
+        <div className="flex items-center justify-center group-hover:justify-between h-16 px-4 group-hover:px-6 border-b border-sidebar-border">
+          <div className="flex items-center">
+            <Brain className="h-6 w-6 text-sidebar-primary flex-shrink-0" />
+            <h2 className="text-lg font-serif font-bold text-sidebar-primary ml-3 hidden group-hover:block whitespace-nowrap">
+              SPLASH'N'GO!
+            </h2>
+          </div>
         </div>
 
-        <nav className="mt-8">
+        <nav className="p-2 group-hover:p-4 space-y-1 group-hover:space-y-2 transition-all duration-300">
           {menuItems.map((item) => {
-            const Icon = item.icon
+            const IconComponent = item.icon
             return (
-              <button
+              <Button
                 key={item.id}
-                onClick={() => setActiveSection(item.id)}
-                className={`w-full flex items-center px-4 py-3 text-left hover:bg-blue-50 transition-colors ${
-                  activeSection === item.id ? "bg-blue-100 border-r-4 border-blue-500" : ""
-                }`}
+                variant={activeSection === item.id ? "default" : "ghost"}
+                className="w-full justify-center group-hover:justify-start mb-1 transition-all duration-300"
+                onClick={() => {
+                  if (item.id === "supplies") {
+                    handleSuppliesClick()
+                  } else if (item.id === "shift-creation") {
+                    handleShiftCreationClick()
+                  } else {
+                    setActiveSection(item.id)
+                  }
+                }}
+                title={item.label}
               >
-                <Icon className="w-5 h-5 text-gray-600" />
-                <span
-                  className={`ml-3 transition-opacity duration-300 ${sidebarHovered ? "opacity-100" : "opacity-0"}`}
-                >
-                  {item.label}
-                </span>
-              </button>
+                <IconComponent className="h-4 w-4 flex-shrink-0" />
+                <span className="ml-2 hidden group-hover:inline whitespace-nowrap">{item.label}</span>
+              </Button>
             )
           })}
-        </nav>
 
-        <div className="absolute bottom-4 left-4 right-4">
-          <button
-            onClick={handleLogout}
-            className="w-full bg-red-500 text-white py-2 px-4 rounded hover:bg-red-600 transition-colors"
-          >
-            {sidebarHovered ? "ログアウト" : "×"}
-          </button>
-        </div>
+          <div className="absolute bottom-4 left-2 right-2 group-hover:left-4 group-hover:right-4 transition-all duration-300">
+            <div className="p-2 group-hover:p-3 bg-sidebar-accent/10 rounded-lg transition-all duration-300">
+              <div className="flex items-center justify-center group-hover:block">
+                <div className="w-8 h-8 bg-sidebar-primary/20 rounded-full flex items-center justify-center group-hover:hidden">
+                  <span className="text-xs font-bold text-sidebar-primary">{userEmail?.charAt(0).toUpperCase()}</span>
+                </div>
+                <div className="hidden group-hover:block">
+                  <p className="text-xs text-sidebar-foreground mb-2">ログイン中:</p>
+                  <p className="text-sm font-medium text-sidebar-foreground mb-3">{userEmail}</p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={logout}
+                className="w-full gap-2 bg-transparent hidden group-hover:flex"
+                title="ログアウト"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>ログアウト</span>
+              </Button>
+            </div>
+          </div>
+        </nav>
       </div>
 
-      {/* メインコンテンツ */}
-      <div className="flex-1 p-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">
-            {menuItems.find((item) => item.id === activeSection)?.label || "ダッシュボード"}
-          </h2>
-          <p className="text-gray-600">SPLASH'N'GO 管理システム</p>
-        </div>
+      <div className="ml-16">
+        <header className="border-b border-border bg-gradient-to-r from-primary/5 to-accent/5">
+          <div className="flex items-center justify-between h-20 px-6">
+            <div>
+              <h1 className="text-2xl font-serif font-bold text-foreground">
+                {menuItems.find((item) => item.id === activeSection)?.label || "ダッシュボード"}
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                {selectedStore === "all" ? "全店舗" : stores.find((s) => s.id.toString() === selectedStore)?.name}{" "}
+                のデータ
+              </p>
+            </div>
+            <Button variant="outline" className="gap-2 bg-transparent">
+              <Download className="h-4 w-4" />
+              データエクスポート
+            </Button>
+          </div>
+        </header>
 
-        {/* コンテンツエリア */}
-        <div className="space-y-6">{renderActiveSection()}</div>
+        <main className="p-6">{renderActiveSection()}</main>
       </div>
     </div>
   )
