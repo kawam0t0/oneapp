@@ -187,31 +187,55 @@ export async function getStores() {
 export async function getTransactions(storeId?: number) {
   console.log("[v0] getTransactions called with storeId:", storeId)
 
-  let query = supabase
-    .from("transactions")
-    .select(`*, stores (id, name, location)`)
-    .order("created_at", { ascending: false })
-    .limit(1000000) // Add explicit limit to override Supabase's default 1000 row limit
+  const allTransactions: any[] = []
+  let hasMore = true
+  let offset = 0
+  const batchSize = 1000
 
-  if (storeId) {
-    query = query.eq("store_id", storeId)
+  while (hasMore) {
+    console.log(`[v0] Fetching batch ${Math.floor(offset / batchSize) + 1}, offset: ${offset}`)
+
+    let query = supabase
+      .from("transactions")
+      .select(`*, stores (id, name, location)`)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + batchSize - 1)
+
+    if (storeId) {
+      query = query.eq("store_id", storeId)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error("[v0] Error fetching transactions:", error)
+      break
+    }
+
+    if (!data || data.length === 0) {
+      hasMore = false
+      break
+    }
+
+    allTransactions.push(...data)
+    console.log(`[v0] Batch ${Math.floor(offset / batchSize) + 1} fetched: ${data.length} transactions`)
+
+    // If we got less than batchSize, we've reached the end
+    if (data.length < batchSize) {
+      hasMore = false
+    } else {
+      offset += batchSize
+    }
   }
 
-  const { data, error } = await query
-
-  if (error) {
-    console.error("[v0] Error fetching transactions:", error)
-    return []
-  }
-
-  console.log("[v0] Transactions fetched from Supabase:", data?.length || 0)
-  console.log("[v0] Sample transaction data:", data?.[0])
+  console.log("[v0] All transactions fetched from Supabase:", allTransactions.length)
+  console.log("[v0] Sample transaction data:", allTransactions[0])
   console.log(
     "[v0] Total net_total sum:",
-    data?.reduce((sum, t) => sum + (t.net_total || 0), 0),
+    allTransactions.reduce((sum, t) => sum + (t.net_total || 0), 0),
   )
 
-  return data || []
+  return allTransactions
 }
 
 export function subscribeToTransactions(callback: (payload: any) => void) {
@@ -265,4 +289,40 @@ export async function authenticateStore(email: string, password: string) {
     console.error("[v0] Exception in authenticateStore:", exception)
     return null
   }
+}
+
+export async function getCurrentMonthTotalSales(storeId?: number) {
+  console.log("[v0] getCurrentMonthTotalSales called with storeId:", storeId)
+
+  // 今月の開始日と終了日を計算
+  const now = new Date()
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+  const startDate = startOfMonth.toISOString().split("T")[0]
+  const endDate = endOfMonth.toISOString().split("T")[0]
+
+  console.log("[v0] Date range:", startDate, "to", endDate)
+
+  let query = supabase
+    .from("transactions")
+    .select("net_total.sum()")
+    .gte("transaction_date", startDate)
+    .lte("transaction_date", endDate)
+    .not("net_total", "is", null)
+
+  if (storeId) {
+    query = query.eq("store_id", storeId)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error("[v0] Error fetching total sales:", error)
+    return 0
+  }
+
+  const totalSales = data?.[0]?.sum || 0
+  console.log("[v0] Current month total sales:", totalSales)
+  return totalSales
 }
