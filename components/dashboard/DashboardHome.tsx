@@ -91,7 +91,36 @@ export default function DashboardHome({ stores, transactions, selectedStore, set
 
     console.log("[v0] Filtered transactions count:", filteredTransactions.length)
 
-    const totalSales = filteredTransactions.reduce((sum, t) => sum + (t.net_total || 0), 0)
+    console.log(
+      "[v0] Net total values in filtered transactions:",
+      filteredTransactions.map((t) => ({
+        id: t.id,
+        net_total: t.net_total,
+        gross_sales: t.gross_sales,
+        payment_source: t.payment_source,
+        transaction_date: t.transaction_date,
+        store_name: t.store_name,
+      })),
+    )
+
+    const totalSales = filteredTransactions.reduce((sum, t) => {
+      const netTotal = t.net_total || 0
+      console.log("[v0] Adding to total sales:", {
+        transaction_id: t.id,
+        net_total: netTotal,
+        running_total: sum + netTotal,
+      })
+      return sum + netTotal
+    }, 0)
+
+    console.log("[v0] Final total sales calculation:", {
+      totalSales,
+      transactionCount: filteredTransactions.length,
+      negativeTransactions: filteredTransactions.filter((t) => (t.net_total || 0) < 0).length,
+      zeroTransactions: filteredTransactions.filter((t) => (t.net_total || 0) === 0).length,
+      positiveTransactions: filteredTransactions.filter((t) => (t.net_total || 0) > 0).length,
+    })
+
     const totalTransactions = filteredTransactions.length
     const avgTransactionValue = totalTransactions > 0 ? totalSales / totalTransactions : 0
 
@@ -161,7 +190,7 @@ export default function DashboardHome({ stores, transactions, selectedStore, set
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">総売上</CardTitle>
+            <CardTitle className="text-sm font-medium">店舗別総売上</CardTitle>
             <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
