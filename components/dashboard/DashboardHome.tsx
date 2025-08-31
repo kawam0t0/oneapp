@@ -40,85 +40,47 @@ export default function DashboardHome({ stores, transactions, selectedStore, set
 
     console.log("[v0] Current month transactions:", currentMonthTransactions.length)
 
-    console.log("[v0] Available store names in transactions:", [
-      ...new Set(currentMonthTransactions.map((t) => t.store_name).filter(Boolean)),
-    ])
-    console.log(
-      "[v0] Available stores:",
-      stores.map((s) => ({ id: s.id, name: s.name })),
-    )
-    console.log("[v0] Selected store:", selectedStore)
-
     const selectedStoreName = stores.find((s) => s.id.toString() === selectedStore)?.name
     console.log("[v0] Selected store name:", selectedStoreName)
 
     const filteredTransactions =
       selectedStore === "all"
         ? currentMonthTransactions.filter((t) => {
-            const hasValidAmount = (t.net_total || 0) > 0 || (t.gross_sales || 0) > 0
-            const hasValidPaymentSource =
-              t.payment_source && ["CASH", "CARD", "WALLET", "POSレジ", "請求書"].includes(t.payment_source)
-
-            console.log("[v0] Transaction filter check:", {
+            const hasNetTotal = t.net_total != null && t.net_total !== 0
+            console.log("[v0] Transaction filter (all stores):", {
+              id: t.id,
               net_total: t.net_total,
-              gross_sales: t.gross_sales,
-              payment_source: t.payment_source,
-              payment_or_refund: t.payment_or_refund,
-              hasValidAmount,
-              hasValidPaymentSource,
+              hasNetTotal,
+              store_name: t.store_name,
             })
-
-            return hasValidAmount && hasValidPaymentSource
+            return hasNetTotal
           })
         : currentMonthTransactions.filter((t) => {
             const storeMatches = t.store_name === selectedStoreName
-            const hasValidAmount = (t.net_total || 0) > 0 || (t.gross_sales || 0) > 0
-            const hasValidPaymentSource =
-              t.payment_source && ["CASH", "CARD", "WALLET", "POSレジ", "請求書"].includes(t.payment_source)
-
-            if (storeMatches && hasValidAmount && hasValidPaymentSource) {
-              console.log("[v0] Matched transaction:", {
-                store_name: t.store_name,
-                net_total: t.net_total,
-                gross_sales: t.gross_sales,
-                payment_source: t.payment_source,
-                transaction_date: t.transaction_date,
-              })
-            }
-
-            return storeMatches && hasValidAmount && hasValidPaymentSource
+            const hasNetTotal = t.net_total != null && t.net_total !== 0
+            console.log("[v0] Transaction filter (specific store):", {
+              id: t.id,
+              store_name: t.store_name,
+              selectedStoreName,
+              storeMatches,
+              net_total: t.net_total,
+              hasNetTotal,
+              included: storeMatches && hasNetTotal,
+            })
+            return storeMatches && hasNetTotal
           })
 
     console.log("[v0] Filtered transactions count:", filteredTransactions.length)
 
-    console.log(
-      "[v0] Net total values in filtered transactions:",
-      filteredTransactions.map((t) => ({
-        id: t.id,
-        net_total: t.net_total,
-        gross_sales: t.gross_sales,
-        payment_source: t.payment_source,
-        transaction_date: t.transaction_date,
-        store_name: t.store_name,
-      })),
-    )
-
     const totalSales = filteredTransactions.reduce((sum, t) => {
       const netTotal = t.net_total || 0
-      console.log("[v0] Adding to total sales:", {
-        transaction_id: t.id,
-        net_total: netTotal,
-        running_total: sum + netTotal,
-      })
       return sum + netTotal
     }, 0)
 
-    console.log("[v0] Final total sales calculation:", {
+    console.log("[v0] Simple total sales calculation:", {
       totalSales,
       transactionCount: filteredTransactions.length,
-      negativeTransactions: filteredTransactions.filter((t) => (t.net_total || 0) < 0).length,
-      zeroTransactions: filteredTransactions.filter((t) => (t.net_total || 0) === 0).length,
-      positiveTransactions: filteredTransactions.filter((t) => (t.net_total || 0) > 0).length,
+      averagePerTransaction: filteredTransactions.length > 0 ? totalSales / filteredTransactions.length : 0,
     })
 
     const totalTransactions = filteredTransactions.length
