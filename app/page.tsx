@@ -106,7 +106,6 @@ export default function SplashNGoDashboard() {
           console.log("[v0] Updated transactions count:", updated.length)
           return updated
         })
-        // 新しい店舗が追加された場合、stores配列も更新
         const newStoreName = payload.new.store_name
         if (newStoreName) {
           console.log("[v0] Checking for new store:", newStoreName)
@@ -124,8 +123,10 @@ export default function SplashNGoDashboard() {
         console.log("[v0] Updating transaction:", payload.new.id)
         setTransactions((prev) => prev.map((t) => (t.id === payload.new.id ? payload.new : t)))
       } else if (payload.eventType === "DELETE") {
-        console.log("[v0] Deleting transaction:", payload.old.id)
-        setTransactions((prev) => prev.filter((t) => t.id !== payload.old.id))
+        console.log("[v0] DELETE event detected but IGNORED to preserve historical data")
+        console.log("[v0] Would have deleted transaction:", payload.old.id)
+        console.log("[v0] Transaction details:", payload.old)
+        // setTransactions((prev) => prev.filter((t) => t.id !== payload.old.id))
       }
     })
 
