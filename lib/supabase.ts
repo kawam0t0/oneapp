@@ -226,8 +226,10 @@ export function subscribeToTransactions(callback: (payload: any) => void) {
 
 export async function authenticateStore(email: string, password: string) {
   console.log("[v0] authenticateStore called with email:", email)
+  console.log("[v0] authenticateStore called with password:", password)
 
   try {
+    console.log("[v0] Executing stores query...")
     const { data, error } = await supabase
       .from("stores")
       .select("*")
@@ -235,8 +237,18 @@ export async function authenticateStore(email: string, password: string) {
       .eq("password", password)
       .single()
 
+    console.log("[v0] Query completed - data:", data)
+    console.log("[v0] Query completed - error:", error)
+
     if (error) {
       console.error("[v0] Error authenticating store:", error)
+      console.error("[v0] Error code:", error.code)
+      console.error("[v0] Error message:", error.message)
+      return null
+    }
+
+    if (!data) {
+      console.log("[v0] No matching store found for credentials")
       return null
     }
 
