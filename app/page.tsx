@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   Download,
@@ -33,6 +34,7 @@ import PlaceholderSection from "@/components/dashboard/PlaceholderSection"
 
 export default function SplashNGoDashboard() {
   const { userEmail, logout } = useAuth()
+  const router = useRouter()
   const [selectedStore, setSelectedStore] = useState("all")
   const [sidebarHovered, setSidebarHovered] = useState(false)
   const [activeSection, setActiveSection] = useState("dashboard")
@@ -40,6 +42,14 @@ export default function SplashNGoDashboard() {
   const [stores, setStores] = useState<Store[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const isAuthenticated = localStorage.getItem("isAuthenticated")
+    if (!isAuthenticated) {
+      router.push("/login")
+      return
+    }
+  }, [router])
 
   const menuItems = [
     { id: "dashboard", label: "ダッシュボード", icon: Home },
@@ -170,6 +180,11 @@ export default function SplashNGoDashboard() {
       default:
         return <PlaceholderSection title="機能開発中" />
     }
+  }
+
+  const isAuthenticated = localStorage.getItem("isAuthenticated")
+  if (!isAuthenticated) {
+    return null
   }
 
   if (loading) {

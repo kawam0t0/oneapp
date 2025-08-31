@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Eye, EyeOff, Lock, User } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { authenticateStore } from "@/lib/supabase"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -25,21 +24,12 @@ export default function LoginPage() {
     setIsLoading(true)
     setError("")
 
-    try {
-      const store = await authenticateStore(email, password)
-
-      if (store) {
-        localStorage.setItem("isAuthenticated", "true")
-        localStorage.setItem("userEmail", email)
-        localStorage.setItem("storeName", store.name)
-        localStorage.setItem("storeId", store.id.toString())
-        router.push("/dashboard")
-      } else {
-        setError("メールアドレスまたはパスワードが正しくありません。")
-      }
-    } catch (error) {
-      console.error("[v0] Login error:", error)
-      setError("ログイン中にエラーが発生しました。")
+    if (email === "admin@splashgo.com" && password === "admin123") {
+      localStorage.setItem("isAuthenticated", "true")
+      localStorage.setItem("userEmail", email)
+      router.push("/")
+    } else {
+      setError("メールアドレスまたはパスワードが正しくありません。")
     }
 
     setIsLoading(false)
@@ -56,7 +46,7 @@ export default function LoginPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-xl font-serif text-center">ログイン</CardTitle>
-            <CardDescription className="text-center">店舗アカウント情報を入力してください</CardDescription>
+            <CardDescription className="text-center">アカウント情報を入力してください</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
@@ -67,7 +57,7 @@ export default function LoginPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="store@splashgo.com"
+                    placeholder="admin@splashgo.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10"
@@ -115,6 +105,12 @@ export default function LoginPage() {
                 {isLoading ? "ログイン中..." : "ログイン"}
               </Button>
             </form>
+
+            <div className="mt-6 p-4 bg-muted/20 rounded-lg">
+              <p className="text-sm text-muted-foreground mb-2">デモ用アカウント:</p>
+              <p className="text-sm font-mono">admin@splashgo.com</p>
+              <p className="text-sm font-mono">admin123</p>
+            </div>
           </CardContent>
         </Card>
       </div>
