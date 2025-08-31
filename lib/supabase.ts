@@ -191,6 +191,7 @@ export async function getTransactions(storeId?: number) {
     .from("transactions")
     .select(`*, stores (id, name, location)`)
     .order("created_at", { ascending: false })
+    .limit(10000) // Explicit high limit to ensure all data is fetched
 
   if (storeId) {
     query = query.eq("store_id", storeId)
@@ -204,6 +205,12 @@ export async function getTransactions(storeId?: number) {
   }
 
   console.log("[v0] Transactions fetched from Supabase:", data?.length || 0)
+  console.log("[v0] Sample transaction data:", data?.[0])
+  console.log(
+    "[v0] Total net_total sum:",
+    data?.reduce((sum, t) => sum + (t.net_total || 0), 0),
+  )
+
   return data || []
 }
 
