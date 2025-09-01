@@ -149,6 +149,10 @@ export default function SplashNGoDashboard() {
     )
   }
 
+  const handleChatClick = () => {
+    window.open("https://mail.google.com/chat/u/0/#chat/home", "_blank")
+  }
+
   const renderActiveSection = () => {
     switch (activeSection) {
       case "dashboard":
@@ -228,6 +232,8 @@ export default function SplashNGoDashboard() {
                     handleSuppliesClick()
                   } else if (item.id === "shift-creation") {
                     handleShiftCreationClick()
+                  } else if (item.id === "chat") {
+                    handleChatClick()
                   } else {
                     setActiveSection(item.id)
                   }
