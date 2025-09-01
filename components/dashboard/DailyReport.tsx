@@ -10,13 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { CalendarIcon, TrendingUp, Users, Car, Pen as Yen } from "lucide-react"
 import { format, parseISO } from "date-fns"
 import { ja } from "date-fns/locale"
-import {
-  subscribeToTransactions,
-  type Transaction,
-  saveDailyReport,
-  getDailyReport,
-  getTransactionsByDate,
-} from "@/lib/supabase"
+import { subscribeToTransactions, type Transaction } from "@/lib/supabase"
 
 interface Store {
   id: number
@@ -33,29 +27,6 @@ export default function DailyReport({ stores, transactions }: DailyReportProps) 
   const [selectedStore, setSelectedStore] = useState<string>("all")
   const [dailyTransactions, setDailyTransactions] = useState<Transaction[]>(transactions)
   const [dailyNotes, setDailyNotes] = useState<string>("トラブル・エラー等引き継ぎ事項があれば記載下さい")
-  const [isSaving, setIsSaving] = useState(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-
-  useEffect(() => {
-    const fetchDailyData = async () => {
-      const dateStr = format(selectedDate, "yyyy-MM-dd")
-      const storeId = selectedStore === "all" ? null : Number.parseInt(selectedStore)
-
-      // 該当日の取引データを取得
-      const dayTransactions = await getTransactionsByDate(dateStr, storeId || undefined)
-      setDailyTransactions(dayTransactions)
-
-      // 該当日の所感を取得
-      const dailyReport = await getDailyReport(dateStr, storeId)
-      if (dailyReport) {
-        setDailyNotes(dailyReport.notes)
-      } else {
-        setDailyNotes("トラブル・エラー等引き継ぎ事項があれば記載下さい")
-      }
-    }
-
-    fetchDailyData()
-  }, [selectedDate, selectedStore])
 
   useEffect(() => {
     setDailyTransactions(transactions)
@@ -144,21 +115,6 @@ export default function DailyReport({ stores, transactions }: DailyReportProps) 
 
   const dailyStats = calculateDailyStats()
 
-  const handleSaveNotes = async () => {
-    setIsSaving(true)
-    try {
-      const dateStr = format(selectedDate, "yyyy-MM-dd")
-      const storeId = selectedStore === "all" ? null : Number.parseInt(selectedStore)
-
-      await saveDailyReport(dateStr, storeId, dailyNotes)
-      setLastSaved(new Date())
-    } catch (error) {
-      console.error("[v0] Error saving daily notes:", error)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -199,9 +155,7 @@ export default function DailyReport({ stores, transactions }: DailyReportProps) 
               />
             </PopoverContent>
           </Popover>
-          <Button onClick={handleSaveNotes} disabled={isSaving}>
-            {isSaving ? "保存中..." : "レポート出力"}
-          </Button>
+          <Button>レポート出力</Button>
         </div>
       </div>
 
@@ -313,14 +267,6 @@ export default function DailyReport({ stores, transactions }: DailyReportProps) 
               placeholder="トラブル・エラー等引き継ぎ事項があれば記載下さい"
               className="min-h-[200px] resize-none"
             />
-            <div className="mt-4 flex justify-between items-center">
-              <div className="text-xs text-muted-foreground">
-                {lastSaved && `最終保存: ${format(lastSaved, "HH:mm:ss")}`}
-              </div>
-              <Button size="sm" onClick={handleSaveNotes} disabled={isSaving}>
-                {isSaving ? "保存中..." : "保存"}
-              </Button>
-            </div>
           </CardContent>
         </Card>
       </div>
