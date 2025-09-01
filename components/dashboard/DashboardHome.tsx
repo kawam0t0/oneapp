@@ -68,7 +68,6 @@ export default function DashboardHome({ stores, transactions, selectedStore, set
     )
     const memberCount = uniqueCustomers.size
 
-    // 店舗別台数計算
     const storeUnitsMap = new Map<string, number>()
     currentMonthTransactions.forEach((t) => {
       if (t.store_name) {
@@ -76,9 +75,15 @@ export default function DashboardHome({ stores, transactions, selectedStore, set
       }
     })
 
-    const storeUnits = Array.from(storeUnitsMap.entries())
-      .map(([storeName, units]) => ({ storeName, units }))
-      .sort((a, b) => b.units - a.units)
+    // storesテーブルのnameカラムの順序で店舗一覧を作成
+    const storeUnits = stores.map((store) => ({
+      storeName: store.name,
+      units: storeUnitsMap.get(store.name) || 0,
+      totalUnits: storeUnitsMap.get(store.name) || 0, // 実際の台数データ
+      subscription: "", // 計算ロジック未実装のため空表示
+      repeat: "", // 計算ロジック未実装のため空表示
+      newCustomer: "", // 計算ロジック未実装のため空表示
+    }))
 
     // 台数ランキング（上位3店舗）
     const ranking = storeUnits.slice(0, 3).map((store, index) => ({
@@ -227,18 +232,20 @@ export default function DashboardHome({ stores, transactions, selectedStore, set
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground border-b pb-2">
+              <div className="grid grid-cols-5 gap-2 text-xs font-medium text-muted-foreground border-b pb-2">
                 <span>店舗名</span>
-                <span className="text-center">今月台数</span>
                 <span className="text-center">総台数</span>
                 <span className="text-center">サブスク</span>
+                <span className="text-center">リピート</span>
+                <span className="text-center">新規</span>
               </div>
               {storeAnalytics.storeUnits.map((store, index) => (
-                <div key={index} className="grid grid-cols-4 gap-2 text-sm py-2 border-b border-muted/30">
+                <div key={index} className="grid grid-cols-5 gap-2 text-sm py-2 border-b border-muted/30">
                   <span className="font-medium truncate">{store.storeName}</span>
-                  <span className="text-center font-serif font-bold text-primary">{store.units}台</span>
-                  <span className="text-center">{store.units}台</span>
-                  <span className="text-center">-台</span>
+                  <span className="text-center font-serif font-bold text-primary">{store.totalUnits}台</span>
+                  <span className="text-center">{store.subscription}</span>
+                  <span className="text-center">{store.repeat}</span>
+                  <span className="text-center">{store.newCustomer}</span>
                 </div>
               ))}
             </div>
