@@ -55,7 +55,17 @@ export default function DailyReport({ stores, transactions }: DailyReportProps) 
       const storeMatches =
         selectedStore === "all" || t.store_name === stores.find((s) => s.id.toString() === selectedStore)?.name
       const hasValidAmount = (t.net_total || 0) > 0
-      const isValidPayment = ["CASH", "CARD", "WALLET"].includes(t.payment_source || "")
+      const isValidPayment = ["CASH", "CARD", "WALLET", "POSレジ", "請求書"].includes(t.payment_source || "")
+
+      console.log("[v0] Daily filtering:", {
+        transactionDate,
+        selectedDateStr,
+        storeMatches,
+        hasValidAmount,
+        isValidPayment,
+        payment_source: t.payment_source,
+        net_total: t.net_total,
+      })
 
       return transactionDate === selectedDateStr && storeMatches && hasValidAmount && isValidPayment
     })
@@ -64,9 +74,12 @@ export default function DailyReport({ stores, transactions }: DailyReportProps) 
   const calculateDailyStats = () => {
     const todayTransactions = getTodayTransactions()
 
+    console.log("[v0] Today transactions count:", todayTransactions.length)
+    console.log("[v0] Sample today transaction:", todayTransactions[0])
+
     const totalSales = todayTransactions.reduce((sum, t) => sum + (t.net_total || 0), 0)
     const onetimeSales = todayTransactions
-      .filter((t) => t.payment_source === "POSレジ")
+      .filter((t) => ["CASH", "CARD", "WALLET", "POSレジ"].includes(t.payment_source || ""))
       .reduce((sum, t) => sum + (t.net_total || 0), 0)
     const subscriptionSales = todayTransactions
       .filter((t) => t.payment_source === "請求書")
@@ -91,6 +104,14 @@ export default function DailyReport({ stores, transactions }: DailyReportProps) 
         hourlyData[hour].customers += 1
         hourlyData[hour].sales += t.net_total || 0
       }
+    })
+
+    console.log("[v0] Daily stats calculated:", {
+      totalSales,
+      onetimeSales,
+      subscriptionSales,
+      totalTransactions,
+      subscriptionCount,
     })
 
     return {
