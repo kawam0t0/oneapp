@@ -326,3 +326,90 @@ export async function getCurrentMonthTotalSales(storeId?: number) {
   console.log("[v0] Current month total sales:", totalSales)
   return totalSales
 }
+
+export interface DailyReport {
+  id: number
+  report_date: string
+  store_id: number | null
+  notes: string
+  created_at: string
+  updated_at: string
+}
+
+// 日報の所感を保存
+export async function saveDailyReport(reportDate: string, storeId: number | null, notes: string) {
+  console.log("[v0] saveDailyReport called for date:", reportDate, "storeId:", storeId)
+
+  const { data, error } = await supabase
+    .from("daily_reports")
+    .upsert(
+      {
+        report_date: reportDate,
+        store_id: storeId,
+        notes: notes,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "report_date,store_id",
+      },
+    )
+    .select()
+    .single()
+
+  if (error) {
+    console.error("[v0] Error saving daily report:", error)
+    return null
+  }
+
+  console.log("[v0] Daily report saved successfully")
+  return data
+}
+
+// 日報の所感を取得
+export async function getDailyReport(reportDate: string, storeId: number | null) {
+  console.log("[v0] getDailyReport called for date:", reportDate, "storeId:", storeId)
+
+  let query = supabase.from("daily_reports").select("*").eq("report_date", reportDate)
+
+  if (storeId) {
+    query = query.eq("store_id", storeId)
+  } else {
+    query = query.is("store_id", null)
+  }
+
+  const { data, error } = await query.single()
+
+  if (error && error.code !== "PGRST116") {
+    // PGRST116 = no rows found
+    console.error("[v0] Error fetching daily report:", error)
+    return null
+  }
+
+  console.log("[v0] Daily report fetched:", !!data)
+  return data
+}
+
+// 指定日の取引データを取得
+export async function getTransactionsByDate(date: string, storeId?: number) {
+  console.log("[v0] getTransactionsByDate called for date:", date, "storeId:", storeId)
+
+  let query = supabase
+    .from("transactions")
+    .select(`*, stores (id, name, location)`)
+    .eq("transaction_date", date)
+    .order("transaction_time", { ascending: true })
+
+  if (storeId) {
+    query = query.eq("store_id", storeId)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error("[v0] Error fetching transactions by date:", error)
+    return []
+  }
+
+  console.log("[v0] Transactions fetched for date:", data?.length || 0)
+  return data || []
+}
