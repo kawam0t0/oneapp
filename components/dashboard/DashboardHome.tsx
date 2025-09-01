@@ -3,7 +3,7 @@
 import { useMemo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DollarSign, TrendingUp, CreditCard, Users, BarChart3, PieChart } from "lucide-react"
+import { DollarSign, TrendingUp, CreditCard, Users, BarChart3, Trophy, LineChart } from "lucide-react"
 import type { Transaction } from "@/lib/supabase"
 
 interface Store {
@@ -20,17 +20,12 @@ interface DashboardHomeProps {
 
 export default function DashboardHome({ stores, transactions, selectedStore, setSelectedStore }: DashboardHomeProps) {
   const storeAnalytics = useMemo(() => {
-    const now = new Date()
-    const currentYear = now.getFullYear()
-    const currentMonth = now.getMonth()
-    const startOfMonth = new Date(currentYear, currentMonth, 1)
-    const endOfMonth = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999)
+    console.log("[v0] Calculating analytics with transactions:", transactions.length)
 
-    console.log("[v0] Filtering for current month:", {
-      startOfMonth: startOfMonth.toISOString(),
-      endOfMonth: endOfMonth.toISOString(),
-      totalTransactions: transactions.length,
-    })
+    // 今月のデータのみをフィルタリング
+    const now = new Date()
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
     const currentMonthTransactions = transactions.filter((t) => {
       if (!t.transaction_date) return false
@@ -38,80 +33,79 @@ export default function DashboardHome({ stores, transactions, selectedStore, set
       return transactionDate >= startOfMonth && transactionDate <= endOfMonth
     })
 
-    console.log("[v0] Current month transactions:", currentMonthTransactions.length)
+    // 店舗別フィルタリング
+    let filteredTransactions = currentMonthTransactions
+    if (selectedStore !== "all") {
+      const selectedStoreName = stores.find((s) => s.id.toString() === selectedStore)?.name
+      if (selectedStoreName) {
+        filteredTransactions = currentMonthTransactions.filter((t) => t.store_name === selectedStoreName)
+      }
+    }
 
-    const selectedStoreName = stores.find((s) => s.id.toString() === selectedStore)?.name
-    console.log("[v0] Selected store name:", selectedStoreName)
+    console.log("[v0] Filtered transactions:", filteredTransactions.length)
 
-    const filteredTransactions =
-      selectedStore === "all"
-        ? currentMonthTransactions.filter((t) => {
-            const hasNetTotal = t.net_total != null && t.net_total !== 0
-            console.log("[v0] Transaction filter (all stores):", {
-              id: t.id,
-              net_total: t.net_total,
-              hasNetTotal,
-              store_name: t.store_name,
-            })
-            return hasNetTotal
-          })
-        : currentMonthTransactions.filter((t) => {
-            const storeMatches = t.store_name === selectedStoreName
-            const hasNetTotal = t.net_total != null && t.net_total !== 0
-            console.log("[v0] Transaction filter (specific store):", {
-              id: t.id,
-              store_name: t.store_name,
-              selectedStoreName,
-              storeMatches,
-              net_total: t.net_total,
-              hasNetTotal,
-              included: storeMatches && hasNetTotal,
-            })
-            return storeMatches && hasNetTotal
-          })
+    // 総売上計算
+    const totalSales = filteredTransactions.reduce((sum, t) => sum + (t.net_total || 0), 0)
 
-    console.log("[v0] Filtered transactions count:", filteredTransactions.length)
+    // ワンタイム/サブスク売上の分類（payment_sourceで判定）
+    const onetimeSales = filteredTransactions
+      .filter((t) => t.payment_source === "POSレジ" || ["CASH", "CARD", "WALLET"].includes(t.payment_source || ""))
+      .reduce((sum, t) => sum + (t.net_total || 0), 0)
 
-    const totalSales = filteredTransactions.reduce((sum, t) => {
-      const netTotal = t.net_total || 0
-      return sum + netTotal
-    }, 0)
+    const subscriptionSales = filteredTransactions
+      .filter((t) => t.payment_source === "請求書")
+      .reduce((sum, t) => sum + (t.net_total || 0), 0)
 
-    console.log("[v0] Simple total sales calculation:", {
-      totalSales,
-      transactionCount: filteredTransactions.length,
-      averagePerTransaction: filteredTransactions.length > 0 ? totalSales / filteredTransactions.length : 0,
-    })
+    // 総台数（全取引件数）
+    const totalUnits = filteredTransactions.length
 
-    const totalTransactions = filteredTransactions.length
-    const avgTransactionValue = totalTransactions > 0 ? totalSales / totalTransactions : 0
+    // 平均単価
+    const avgPrice = totalUnits > 0 ? Math.round(totalSales / totalUnits) : 0
 
+    // 会員数（ユニーク顧客数）
     const uniqueCustomers = new Set(
-      filteredTransactions.filter((t) => t.customer_id && t.customer_id.trim() !== "").map((t) => t.customer_id),
-    ).size
+      filteredTransactions.map((t) => t.customer_id).filter((id) => id && id.trim() !== ""),
+    )
+    const memberCount = uniqueCustomers.size
 
-    const itemCounts: { [key: string]: number } = {}
-    filteredTransactions.forEach((t) => {
-      if (t.transaction_details && t.transaction_details !== "基本取引") {
-        const item = t.transaction_details
-        itemCounts[item] = (itemCounts[item] || 0) + 1
+    // 店舗別台数計算
+    const storeUnitsMap = new Map<string, number>()
+    currentMonthTransactions.forEach((t) => {
+      if (t.store_name) {
+        storeUnitsMap.set(t.store_name, (storeUnitsMap.get(t.store_name) || 0) + 1)
       }
     })
 
-    const sourceRevenue: { [key: string]: number } = {}
-    filteredTransactions.forEach((t) => {
-      const source = t.payment_source || "不明"
-      sourceRevenue[source] = (sourceRevenue[source] || 0) + (t.net_total || 0)
+    const storeUnits = Array.from(storeUnitsMap.entries())
+      .map(([storeName, units]) => ({ storeName, units }))
+      .sort((a, b) => b.units - a.units)
+
+    // 台数ランキング（上位3店舗）
+    const ranking = storeUnits.slice(0, 3).map((store, index) => ({
+      rank: index + 1,
+      storeName: store.storeName,
+      units: store.units,
+    }))
+
+    console.log("[v0] Analytics calculated:", {
+      totalSales,
+      onetimeSales,
+      subscriptionSales,
+      totalUnits,
+      avgPrice,
+      memberCount,
+      storeUnitsCount: storeUnits.length,
     })
 
     return {
       totalSales,
-      totalTransactions,
-      avgTransactionValue,
-      uniqueCustomers,
-      itemCounts,
-      sourceRevenue,
-      filteredTransactions,
+      onetimeSales,
+      subscriptionSales,
+      totalUnits,
+      avgPrice,
+      memberCount,
+      storeUnits,
+      ranking,
     }
   }, [transactions, selectedStore, stores])
 
@@ -148,157 +142,168 @@ export default function DashboardHome({ stores, transactions, selectedStore, set
         </CardContent>
       </Card>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        {/* 総売上 */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">店舗別総売上</CardTitle>
+            <CardTitle className="text-sm font-medium">総売上</CardTitle>
             <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-serif font-bold text-primary">
               ¥{storeAnalytics.totalSales.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">
-              <TrendingUp className="inline h-3 w-3 mr-1" />
-              {selectedStore === "all" ? "全店舗合計" : "選択店舗"}（{currentMonthDisplay}）
-            </p>
+            <div className="space-y-1 mt-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">ワンタイム</span>
+                <span className="font-medium">¥{storeAnalytics.onetimeSales.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">サブスク</span>
+                <span className="font-medium">¥{storeAnalytics.subscriptionSales.toLocaleString()}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
+        {/* 総台数 */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">取引件数</CardTitle>
+            <CardTitle className="text-sm font-medium">総台数</CardTitle>
             <CreditCard className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-serif font-bold">{storeAnalytics.totalTransactions}件</div>
+            <div className="text-2xl font-serif font-bold">{storeAnalytics.totalUnits}台</div>
             <p className="text-xs text-muted-foreground">
               <TrendingUp className="inline h-3 w-3 mr-1" />
-              決済完了分のみ（{currentMonthDisplay}）
+              全取引件数（{currentMonthDisplay}）
             </p>
           </CardContent>
         </Card>
 
+        {/* 平均単価 */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">平均単価</CardTitle>
             <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-serif font-bold">
-              ¥{Math.round(storeAnalytics.avgTransactionValue).toLocaleString()}
-            </div>
+            <div className="text-2xl font-serif font-bold">¥{storeAnalytics.avgPrice.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               <TrendingUp className="inline h-3 w-3 mr-1" />
-              1取引あたり平均（{currentMonthDisplay}）
+              1台あたり平均（{currentMonthDisplay}）
             </p>
           </CardContent>
         </Card>
 
+        {/* 会員数 */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">ユニーク顧客数</CardTitle>
+            <CardTitle className="text-sm font-medium">会員数</CardTitle>
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-serif font-bold">{storeAnalytics.uniqueCustomers}人</div>
+            <div className="text-2xl font-serif font-bold">{storeAnalytics.memberCount}人</div>
             <p className="text-xs text-muted-foreground">
               <TrendingUp className="inline h-3 w-3 mr-1" />
-              リピート顧客含む（{currentMonthDisplay}）
+              ユニーク顧客数（{currentMonthDisplay}）
             </p>
           </CardContent>
         </Card>
+
+        {/* 空のカード（レイアウト調整用） */}
+        <div className="hidden lg:block"></div>
       </div>
 
-      {/* Analytics Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* アイテム別件数 */}
+        {/* 今月の台数（店舗別一覧） */}
         <Card>
           <CardHeader>
             <CardTitle className="font-serif flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-primary" />
-              アイテム別件数
+              今月の台数
             </CardTitle>
-            <CardDescription>商品・サービス別の取引件数（{currentMonthDisplay}）</CardDescription>
+            <CardDescription>店舗別の台数一覧（{currentMonthDisplay}）</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {Object.entries(storeAnalytics.itemCounts)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 5)
-                .map(([item, count]) => (
-                  <div key={item} className="flex justify-between items-center p-3 bg-muted/20 rounded-lg">
-                    <span className="text-sm font-medium truncate flex-1 mr-2">{item}</span>
-                    <span className="text-lg font-serif font-bold text-primary">{count}件</span>
-                  </div>
-                ))}
-              {Object.keys(storeAnalytics.itemCounts).length === 0 && (
-                <p className="text-muted-foreground text-center py-4">データがありません</p>
-              )}
+              <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground border-b pb-2">
+                <span>店舗名</span>
+                <span className="text-center">今月台数</span>
+                <span className="text-center">総台数</span>
+                <span className="text-center">サブスク</span>
+              </div>
+              {storeAnalytics.storeUnits.map((store, index) => (
+                <div key={index} className="grid grid-cols-4 gap-2 text-sm py-2 border-b border-muted/30">
+                  <span className="font-medium truncate">{store.storeName}</span>
+                  <span className="text-center font-serif font-bold text-primary">{store.units}台</span>
+                  <span className="text-center">{store.units}台</span>
+                  <span className="text-center">-台</span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* payment_source別売上 */}
+        {/* 今月の台数ランキング */}
         <Card>
           <CardHeader>
             <CardTitle className="font-serif flex items-center gap-2">
-              <PieChart className="h-5 w-5 text-accent" />
-              決済方法別売上
+              <Trophy className="h-5 w-5 text-accent" />
+              今月の台数ランキング
             </CardTitle>
-            <CardDescription>POSレジ・請求書別の売上分析（{currentMonthDisplay}）</CardDescription>
+            <CardDescription>上位3店舗（{currentMonthDisplay}）</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {Object.entries(storeAnalytics.sourceRevenue)
-                .sort(([, a], [, b]) => b - a)
-                .map(([source, revenue]) => (
-                  <div key={source} className="flex justify-between items-center p-3 bg-muted/20 rounded-lg">
-                    <span className="text-sm font-medium">{source}</span>
-                    <span className="text-lg font-serif font-bold text-primary">¥{revenue.toLocaleString()}</span>
+            <div className="space-y-4">
+              {storeAnalytics.ranking.map((item) => (
+                <div key={item.rank} className="flex items-center justify-between p-4 bg-muted/20 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                        item.rank === 1
+                          ? "bg-yellow-500 text-white"
+                          : item.rank === 2
+                            ? "bg-gray-400 text-white"
+                            : "bg-orange-600 text-white"
+                      }`}
+                    >
+                      {item.rank}
+                    </div>
+                    <span className="font-medium text-sm">{item.storeName}</span>
                   </div>
-                ))}
-              {Object.keys(storeAnalytics.sourceRevenue).length === 0 && (
-                <p className="text-muted-foreground text-center py-4">データがありません</p>
-              )}
+                  <span className="text-lg font-serif font-bold text-primary">{item.units}台</span>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Store Performance Summary */}
       <Card>
         <CardHeader>
           <CardTitle className="font-serif flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            店舗パフォーマンス概要
+            <LineChart className="h-5 w-5 text-primary" />
+            全店舗別折れ線グラフ
           </CardTitle>
-          <CardDescription>
-            {selectedStore === "all"
-              ? "全店舗の"
-              : `${stores.find((s) => s.id.toString() === selectedStore)?.name || "選択店舗"}の`}
-            取引データサマリー（{currentMonthDisplay}）
-          </CardDescription>
+          <CardDescription>時系列での推移分析</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-primary/5 rounded-lg">
-              <div className="text-2xl font-serif font-bold text-primary">
-                ¥{storeAnalytics.totalSales.toLocaleString()}
-              </div>
-              <div className="text-sm text-muted-foreground">総売上</div>
-            </div>
-            <div className="text-center p-4 bg-muted/20 rounded-lg">
-              <div className="text-2xl font-serif font-bold">{storeAnalytics.totalTransactions}</div>
-              <div className="text-sm text-muted-foreground">取引件数</div>
-            </div>
-            <div className="text-center p-4 bg-accent/10 rounded-lg">
-              <div className="text-2xl font-serif font-bold text-accent">
-                ¥{Math.round(storeAnalytics.avgTransactionValue).toLocaleString()}
-              </div>
-              <div className="text-sm text-muted-foreground">平均単価</div>
-            </div>
+          <div className="mb-4">
+            <Select defaultValue="totalSales">
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="表示項目を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="totalSales">総売上</SelectItem>
+                <SelectItem value="totalUnits">総台数</SelectItem>
+                <SelectItem value="avgPrice">平均単価</SelectItem>
+                <SelectItem value="memberCount">会員数</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="h-64 flex items-center justify-center bg-muted/10 rounded-lg">
+            <p className="text-muted-foreground">グラフコンポーネント（後で実装）</p>
           </div>
         </CardContent>
       </Card>
