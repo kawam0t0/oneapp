@@ -75,22 +75,25 @@ export default function DashboardHome({ stores, transactions, selectedStore, set
       }
     })
 
-    // storesテーブルのnameカラムの順序で店舗一覧を作成
-    const storeUnits = stores.map((store) => ({
-      storeName: store.name,
-      units: storeUnitsMap.get(store.name) || 0,
-      totalUnits: storeUnitsMap.get(store.name) || 0, // 実際の台数データ
-      subscription: "", // 計算ロジック未実装のため空表示
-      repeat: "", // 計算ロジック未実装のため空表示
-      newCustomer: "", // 計算ロジック未実装のため空表示
-    }))
+    const storeUnits = stores
+      .sort((a, b) => a.id - b.id) // id順でソート
+      .map((store) => ({
+        storeName: store.name,
+        units: storeUnitsMap.get(store.name) || 0,
+        totalUnits: storeUnitsMap.get(store.name) || 0, // 実際の台数データ
+        subscription: "", // 計算ロジック未実装のため空表示
+        repeat: "", // 計算ロジック未実装のため空表示
+        newCustomer: "", // 計算ロジック未実装のため空表示
+      }))
 
-    // 台数ランキング（上位3店舗）
-    const ranking = storeUnits.slice(0, 3).map((store, index) => ({
-      rank: index + 1,
-      storeName: store.storeName,
-      units: store.units,
-    }))
+    const ranking = storeUnits
+      .sort((a, b) => b.totalUnits - a.totalUnits) // 総台数の多い順でソート
+      .slice(0, 3)
+      .map((store, index) => ({
+        rank: index + 1,
+        storeName: store.storeName,
+        units: store.totalUnits,
+      }))
 
     console.log("[v0] Analytics calculated:", {
       totalSales,
