@@ -153,6 +153,10 @@ export default function SplashNGoDashboard() {
     window.open("https://mail.google.com/chat/u/0/#chat/home", "_blank")
   }
 
+  const handleAttendanceClick = () => {
+    window.open("https://attendance.moneyforward.com/time_recorder_mode/web_with_pasori", "_blank")
+  }
+
   const renderActiveSection = () => {
     switch (activeSection) {
       case "dashboard":
@@ -234,6 +238,8 @@ export default function SplashNGoDashboard() {
                     handleShiftCreationClick()
                   } else if (item.id === "chat") {
                     handleChatClick()
+                  } else if (item.id === "attendance") {
+                    handleAttendanceClick()
                   } else {
                     setActiveSection(item.id)
                   }
