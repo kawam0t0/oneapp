@@ -20,7 +20,7 @@ import {
   Calendar,
 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
-import { getTransactions, subscribeToTransactions, type Transaction, type Store } from "@/lib/supabase"
+import { getTransactions, subscribeToTransactions, getStores, type Transaction, type Store } from "@/lib/supabase"
 import DashboardHome from "@/components/dashboard/DashboardHome"
 import CustomerManagement from "@/components/dashboard/CustomerManagement"
 import SubscriptionManagement from "@/components/dashboard/SubscriptionManagement"
@@ -28,7 +28,7 @@ import DailyReport from "@/components/dashboard/DailyReport"
 import AttendanceManagement from "@/components/dashboard/AttendanceManagement"
 import ChatScreen from "@/components/dashboard/ChatScreen"
 import BiAnalytics from "@/components/dashboard/BiAnalytics"
-import MaintenanceErrors from "@/components/dashboard/MaintenanceErrors"
+import MaintenanceScreen from "@/components/dashboard/MaintenanceScreen"
 import EventCalendar from "@/components/dashboard/EventCalendar"
 import PlaceholderSection from "@/components/dashboard/PlaceholderSection"
 
@@ -76,16 +76,11 @@ export default function SplashNGoDashboard() {
       console.log("[v0] Number of transactions:", transactionsData.length)
       setTransactions(transactionsData)
 
-      const uniqueStoreNames = [...new Set(transactionsData.map((t) => t.store_name).filter(Boolean))]
-      console.log("[v0] Unique store names from transactions:", uniqueStoreNames)
-
-      const storesFromTransactions = uniqueStoreNames.map((name, index) => ({
-        id: index + 1,
-        name: name as string,
-      }))
-
-      setStores(storesFromTransactions)
-      console.log("[v0] Stores from transactions:", storesFromTransactions)
+      // Fetching stores from the stores table
+      console.log("[v0] Fetching stores...")
+      const storesData = await getStores()
+      console.log("[v0] Stores data:", storesData)
+      setStores(storesData)
 
       setLoading(false)
     }
@@ -183,7 +178,7 @@ export default function SplashNGoDashboard() {
       case "bi-analytics":
         return <BiAnalytics />
       case "maintenance":
-        return <MaintenanceErrors />
+        return <MaintenanceScreen stores={stores} />
       case "calendar":
         return <EventCalendar />
       default:

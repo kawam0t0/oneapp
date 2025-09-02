@@ -18,7 +18,7 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: "Square POS Analytics",
+  title: "One App",
   description: "Professional transaction data analytics for your Square POS",
   generator: "v0.app",
 }

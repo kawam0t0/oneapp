@@ -413,3 +413,107 @@ export async function getTransactionsByDate(date: string, storeId?: number) {
   console.log("[v0] Transactions fetched for date:", data?.length || 0)
   return data || []
 }
+
+// メンテナンス報告のインターフェース追加
+export interface MaintenanceItem {
+  category: string
+  side: string
+  location: string
+}
+
+export interface MaintenanceReport {
+  id: number
+  store_id: number
+  store_name: string
+  staff_name: string
+  report_date: string
+  response_hours: number
+  response_people: number
+  maintenance_items: MaintenanceItem[]
+  remarks: string
+  created_at: string
+  updated_at: string
+}
+
+// メンテナンス報告を保存
+export async function saveMaintenanceReport(reportData: {
+  store_id: number
+  store_name: string
+  staff_name: string
+  report_date: string
+  response_hours: number
+  response_people: number
+  maintenance_items: MaintenanceItem[]
+  remarks: string
+}) {
+  console.log("[v0] saveMaintenanceReport called:", reportData)
+
+  const { data, error } = await supabase
+    .from("maintenance")
+    .insert({
+      store_id: reportData.store_id,
+      store_name: reportData.store_name,
+      staff_name: reportData.staff_name,
+      report_date: reportData.report_date,
+      response_hours: reportData.response_hours,
+      response_people: reportData.response_people,
+      maintenance_items: reportData.maintenance_items,
+      remarks: reportData.remarks,
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error("[v0] Error saving maintenance report:", error)
+    return null
+  }
+
+  console.log("[v0] Maintenance report saved successfully")
+  return data
+}
+
+// 指定月のメンテナンス報告を取得
+export async function getMaintenanceReports(month: string, storeId?: number) {
+  console.log("[v0] getMaintenanceReports called for month:", month, "storeId:", storeId)
+
+  // 月の開始日と終了日を計算
+  const [year, monthNum] = month.split("-")
+  const startDate = `${year}-${monthNum}-01`
+  const endDate = new Date(Number.parseInt(year), Number.parseInt(monthNum), 0).toISOString().split("T")[0]
+
+  let query = supabase
+    .from("maintenance")
+    .select("*")
+    .gte("report_date", startDate)
+    .lte("report_date", endDate)
+    .order("report_date", { ascending: false })
+
+  if (storeId) {
+    query = query.eq("store_id", storeId)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error("[v0] Error fetching maintenance reports:", error)
+    return []
+  }
+
+  console.log("[v0] Maintenance reports fetched:", data?.length || 0)
+  return data || []
+}
+
+// メンテナンス報告の詳細を取得
+export async function getMaintenanceReport(id: number) {
+  console.log("[v0] getMaintenanceReport called for ID:", id)
+
+  const { data, error } = await supabase.from("maintenance").select("*").eq("id", id).single()
+
+  if (error) {
+    console.error("[v0] Error fetching maintenance report:", error)
+    return null
+  }
+
+  console.log("[v0] Maintenance report fetched successfully")
+  return data
+}
